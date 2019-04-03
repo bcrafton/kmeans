@@ -45,8 +45,61 @@ def get_patches(X, patch_shape, patch_num):
 
 ###########################################
 
-patches = get_patches(x_train, (6, 6, 3), 100)
-print (np.shape(patches))
+### CHECK SIZING
+### IF WE WERE SMART WE WOULD MAKE CHECKS FOR THE SIZE OF THESE THINGS ...
+
+def kmeans(patches, patch_shape, patch_num, centroid_num, iterations):
+    BATCH_SIZE = 1000
+
+    pixel_num = np.prod(patch_shape)
+    patches = np.reshape(patches, (patch_num, pixel_num))
+    centroids = np.random.uniform(low=0., high=0.1, size=(centroid_num, pixel_num))
+    
+    summation = np.zeros(shape=(centroid_num, pixel_num))
+    counts = np.zeros(shape=(centroid_num))
+    
+    for ii in range(0, patch_num, BATCH_SIZE):
+        assert(ii + BATCH_SIZE <= patch_num)
+        batch = patches[ii:ii+BATCH_SIZE]
+        
+        # attempt 1
+        # val = np.dot(centroids, batch.T)
+        # labels = np.argsort(val)
+        # print (np.shape(centroids), np.shape(batch.T))
+        # print (np.shape(val), np.shape(labels))
+        
+        # attempt 2 
+        val = np.dot(centroids, batch.T)
+        labels = np.argmax(val, axis=0)
+        val = np.max(val, axis=0)
+        # print (np.shape(centroids), np.shape(batch.T))
+        # print (np.shape(val), np.shape(labels))
+        # print (labels)
+        
+        # S = sparse(1:m,labels,1,m,k,m); % labels as indicator matrix
+        s = np.zeros(shape=(BATCH_SIZE, centroid_num))
+        s[range(BATCH_SIZE), labels] = val
+        # print (np.shape(s))
+        # s = (1000, 1600)
+        # centroids = (1600, 108)
+        # summation = (1600, 108)
+        
+        # summation = summation + S'*X(i:lastIndex,:);
+        # counts = counts + sum(S,1)';
+        summation = summation + np.dot(s.T, batch)
+        counts = counts + np.sum(s, axis=0)
+        print (np.shape(counts))
+        
+    return centroids
+    
+###########################################
+
+patches = get_patches(X=x_train, patch_shape=(6, 6, 3), patch_num=100000)
+
+centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=100000, centroid_num=1600, iterations=1)
+
+print (centroids)
+
 
 '''
 def run_kmeans(x, k, iterations):
@@ -56,3 +109,8 @@ def run_kmeans(x, k, iterations):
     
     num = np.shape(X)
 '''
+
+
+
+
+
