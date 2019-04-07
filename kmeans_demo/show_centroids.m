@@ -21,4 +21,4 @@ function image = show_centroids(centroids, H, W)
   mn=-1.5;
   mx=+1.5;
   image = (image - mn) / (mx - mn);
-  imshow(image);
+  %imwrite(image, 'matlab_centroids.png');

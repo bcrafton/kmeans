@@ -1,4 +1,4 @@
-function XC = extract_features(X, centroids, rfSize, CIFAR_DIM, M,P)
+function XC = extract_features(X, centroids, rfSize, CIFAR_DIM, M, P)
   assert(nargin == 4 || nargin == 6);
   whitening = (nargin == 6);
   numCentroids = size(centroids,1);

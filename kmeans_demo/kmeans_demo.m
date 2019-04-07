@@ -51,13 +51,16 @@ if (whitening)
   patches = bsxfun(@minus, patches, M) * P;
 end
 
-save('patches.mat', 'patches')
+%save('patches.mat', 'patches')
 
 %disp(std(patches(:)))
 
 % run K-means
-centroids = run_kmeans(patches, numCentroids, 50);
+%centroids = run_kmeans(patches, numCentroids, 1);
+M = load('centroids.mat');
+centroids = M.centroids;
 show_centroids(centroids, rfSize); drawnow;
+disp(size(centroids));
 
 % extract training features
 if (whitening)
@@ -90,7 +93,7 @@ clear f1;
 
 % compute testing features and standardize
 if (whitening)
-  testXC = extract_features(testX, centroids, rfSize, CIFAR_DIM, M,P);
+  testXC = extract_features(testX, centroids, rfSize, CIFAR_DIM, M, P);
 else
   testXC = extract_features(testX, centroids, rfSize, CIFAR_DIM);
 end

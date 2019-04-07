@@ -1,5 +1,7 @@
 
 import numpy as np
+from sklearn import svm
+import matplotlib.pyplot as plt
 from scipy import io
 import tensorflow as tf
 
@@ -27,6 +29,43 @@ x_train = x_train - np.average(x_train)
 
 x_test = x_test / 255.
 x_test = x_test - np.average(x_test)
+
+###########################################
+
+def factors(x):
+    l = [] 
+    for i in range(1, x + 1):
+        if x % i == 0:
+            l.append(i)
+    
+    mid = int(len(l) / 2)
+    
+    if (len(l) % 2 == 1):
+        return [l[mid], l[mid]]
+    else:
+        return l[mid-1:mid+1]
+
+
+def viz(name, filters):
+    fh, fw, fin, fout = np.shape(filters)
+    filters = np.transpose(filters, (3, 0, 1, 2))
+    
+    [nrows, ncols] = factors(fout)
+    filters = np.reshape(filters, (nrows, ncols, fh, fw, fin))
+
+    for ii in range(nrows):
+        for jj in range(ncols):
+            if jj == 0:
+                row = filters[ii][jj]
+            else:
+                row = np.concatenate((row, filters[ii][jj]), axis=1)
+                
+        if ii == 0:
+            img = row
+        else:
+            img = np.concatenate((img, row), axis=0)
+            
+    plt.imsave(name, img)
 
 ###########################################
 
@@ -61,10 +100,7 @@ def kmeans(patches, patch_shape, patch_num, centroid_num, iterations):
     pixel_num = np.prod(patch_shape)
     patches = np.reshape(patches, (patch_num, pixel_num))
     centroids = np.random.normal(loc=0., scale=0.1, size=(centroid_num, pixel_num))
-    
-    # summation = np.zeros(shape=(centroid_num, pixel_num))
-    # counts = np.zeros(shape=(centroid_num))
-    
+
     for itr in range(iterations):
         summation = np.zeros(shape=(centroid_num, pixel_num))
         counts = np.zeros(shape=(centroid_num))
@@ -99,7 +135,29 @@ def kmeans(patches, patch_shape, patch_num, centroid_num, iterations):
 patches = io.loadmat('patches.mat')['patches']
 print (np.std(patches))
 
-centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=1600, iterations=50)
-print (centroids)
+centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=1600, iterations=1)
+print (np.std(centroids))
+
+# if we dump it and do show_centroids in matlab it works fine.
+dic = {'centroids': centroids}
+io.savemat('centroids.mat', dic)
+
+'''
+centroids = np.reshape(centroids, (1600, 6, 6, 3))
+centroids = np.transpose(centroids, (1, 2, 3, 0))
+viz('centroids', centroids)
+'''
+
+'''
+clf = svm.SVC(gamma='scale')
+clf.fit(X, y) 
+'''
+
+
+
+
+
+
+
 
 
