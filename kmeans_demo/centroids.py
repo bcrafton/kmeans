@@ -1,5 +1,6 @@
 
 import numpy as np
+from scipy import io
 import tensorflow as tf
 
 ###########################################
@@ -20,6 +21,12 @@ if np.shape(x_train) != TRAIN_SHAPE:
     
 if np.shape(x_test) != TEST_SHAPE:
     x_test = np.transpose(x_test, (0, 2, 3, 1))
+
+x_train = x_train / 255.
+x_train = x_train - np.average(x_train)
+
+x_test = x_test / 255.
+x_test = x_test - np.average(x_test)
 
 ###########################################
 
@@ -53,64 +60,46 @@ def kmeans(patches, patch_shape, patch_num, centroid_num, iterations):
 
     pixel_num = np.prod(patch_shape)
     patches = np.reshape(patches, (patch_num, pixel_num))
-    centroids = np.random.uniform(low=0., high=0.1, size=(centroid_num, pixel_num))
+    centroids = np.random.normal(loc=0., scale=0.1, size=(centroid_num, pixel_num))
     
-    summation = np.zeros(shape=(centroid_num, pixel_num))
-    counts = np.zeros(shape=(centroid_num))
+    # summation = np.zeros(shape=(centroid_num, pixel_num))
+    # counts = np.zeros(shape=(centroid_num))
     
-    for ii in range(0, patch_num, BATCH_SIZE):
-        assert(ii + BATCH_SIZE <= patch_num)
-        batch = patches[ii:ii+BATCH_SIZE]
-        
-        # attempt 1
-        # val = np.dot(centroids, batch.T)
-        # labels = np.argsort(val)
-        # print (np.shape(centroids), np.shape(batch.T))
-        # print (np.shape(val), np.shape(labels))
-        
-        # attempt 2 
-        val = np.dot(centroids, batch.T)
-        labels = np.argmax(val, axis=0)
-        val = np.max(val, axis=0)
-        # print (np.shape(centroids), np.shape(batch.T))
-        # print (np.shape(val), np.shape(labels))
-        # print (labels)
-        
-        # S = sparse(1:m,labels,1,m,k,m); % labels as indicator matrix
-        s = np.zeros(shape=(BATCH_SIZE, centroid_num))
-        s[range(BATCH_SIZE), labels] = val
-        # print (np.shape(s))
-        # s = (1000, 1600)
-        # centroids = (1600, 108)
-        # summation = (1600, 108)
-        
-        # summation = summation + S'*X(i:lastIndex,:);
-        # counts = counts + sum(S,1)';
-        summation = summation + np.dot(s.T, batch)
-        counts = counts + np.sum(s, axis=0)
-        print (np.shape(counts))
+    for itr in range(iterations):
+        summation = np.zeros(shape=(centroid_num, pixel_num))
+        counts = np.zeros(shape=(centroid_num))
+        c2 = 0.5 * np.sum(centroids ** 2, axis=1, keepdims=True)
+    
+        for ii in range(0, patch_num, BATCH_SIZE):
+            assert(ii + BATCH_SIZE <= patch_num)
+            batch = patches[ii:ii+BATCH_SIZE]
+
+            val = np.dot(centroids, batch.T) - c2
+            labels = np.argmax(val, axis=0)
+            val = np.max(val, axis=0)
+            
+            s = np.zeros(shape=(BATCH_SIZE, centroid_num))
+            s[range(BATCH_SIZE), labels] = 1
+            
+            summation = summation + np.dot(s.T, batch)
+            counts = counts + np.sum(s, axis=0)
+
+        print (np.std(centroids))
+
+        idx = np.where(counts != 0)
+        nidx = np.where(counts == 0)
+        _counts = 1. * np.reshape(counts, (-1, 1))
+        centroids[idx] = summation[idx] / _counts[idx]
+        centroids[nidx] = 0.
         
     return centroids
     
 ###########################################
+# patches = get_patches(X=x_train, patch_shape=(6, 6, 3), patch_num=100000)
+patches = io.loadmat('patches.mat')['patches']
+print (np.std(patches))
 
-patches = get_patches(X=x_train, patch_shape=(6, 6, 3), patch_num=100000)
-
-centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=100000, centroid_num=1600, iterations=1)
-
+centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=1600, iterations=50)
 print (centroids)
-
-
-'''
-def run_kmeans(x, k, iterations):
-
-    # x2 = sum(X.^2,2);
-    # centroids = randn(k,size(X,2))*0.1;%X(randsample(size(X,1), k), :);
-    
-    num = np.shape(X)
-'''
-
-
-
 
 

@@ -51,6 +51,10 @@ if (whitening)
   patches = bsxfun(@minus, patches, M) * P;
 end
 
+save('patches.mat', 'patches')
+
+%disp(std(patches(:)))
+
 % run K-means
 centroids = run_kmeans(patches, numCentroids, 50);
 show_centroids(centroids, rfSize); drawnow;
