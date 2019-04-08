@@ -1,12 +1,15 @@
 
 import numpy as np
+# from scipy.cluster.vq import whiten
+from whiten import whiten
 from sklearn import svm
 import matplotlib.pyplot as plt
 from scipy import io
 import tensorflow as tf
 
-###########################################
+np.random.seed(0)
 
+###########################################
 TRAIN_EXAMPLES = 50000
 TEST_EXAMPLES = 10000
 H = 32
@@ -24,12 +27,16 @@ if np.shape(x_train) != TRAIN_SHAPE:
 if np.shape(x_test) != TEST_SHAPE:
     x_test = np.transpose(x_test, (0, 2, 3, 1))
 
-x_train = x_train / 255.
-x_train = x_train - np.average(x_train)
-
-x_test = x_test / 255.
-x_test = x_test - np.average(x_test)
-
+'''
+x_train1 = io.loadmat('./CIFAR10/data_batch_1.mat')['data']
+x_train2 = io.loadmat('./CIFAR10/data_batch_2.mat')['data']
+x_train3 = io.loadmat('./CIFAR10/data_batch_3.mat')['data']
+x_train4 = io.loadmat('./CIFAR10/data_batch_4.mat')['data']
+x_train5 = io.loadmat('./CIFAR10/data_batch_5.mat')['data']
+x_train = np.concatenate((x_train1, x_train2, x_train3, x_train4, x_train5), axis=0)
+x_train = x_train.astype(float)
+x_train = np.reshape(x_train, (TRAIN_SHAPE))
+'''
 ###########################################
 
 def factors(x):
@@ -84,7 +91,7 @@ def get_patches(X, patch_shape, patch_num):
         h = np.random.randint(H - PH)
         w = np.random.randint(W - PW)
         # c = np.random.randint(C - PC) # we are taking all the channels
-        patch = X[idx, h + PH, w + PW, :]
+        patch = X[idx, h:h+PH, w:w+PW, :]
         patches[ii] = patch
         
     return patches
@@ -131,9 +138,40 @@ def kmeans(patches, patch_shape, patch_num, centroid_num, iterations):
     return centroids
     
 ###########################################
-# patches = get_patches(X=x_train, patch_shape=(6, 6, 3), patch_num=100000)
-patches = io.loadmat('patches.mat')['patches']
+
+patches = get_patches(X=x_train, patch_shape=(6, 6, 3), patch_num=400000)
+patches = np.reshape(patches, (400000, 6*6*3))
+
+# patches = io.loadmat('patches.mat')['patches']
+
+mean = np.mean(patches, axis=1, keepdims=True)
+patches = patches - mean
+# sqrt(var(patches,[],2)+10)
+var = np.var(patches, axis=1, ddof=1, keepdims=True)
+scale = np.sqrt(var + 10.)
+patches = patches / scale
+
+print (np.std(patches, ddof=1))
+print ('mean', np.std(mean, ddof=1), np.shape(mean))
+print ('var', np.std(var, ddof=1), np.shape(var))
+
+cov = np.cov(patches.T)
+mean = np.mean(patches, axis=0, keepdims=True)
+[D, V] = np.linalg.eig(cov)
+
+# P = V * diag(sqrt(1./(diag(D) + 0.1))) * V'; 
+a = np.diag(np.sqrt(1./(D + 0.1)))
+b = np.dot(V, a)
+c = np.dot(b, V.T)
+P = c
+patches = np.dot(patches - mean, P)
+
 print (np.std(patches))
+
+# patches = whiten(X=patches, method='zca')
+# patches = io.loadmat('patches.mat')['patches']
+
+###########################################
 
 centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=1600, iterations=1)
 print (np.std(centroids))
