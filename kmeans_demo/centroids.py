@@ -6,6 +6,7 @@ from sklearn import svm
 import matplotlib.pyplot as plt
 from scipy import io
 import tensorflow as tf
+import conv_utils 
 
 np.random.seed(0)
 
@@ -26,6 +27,14 @@ if np.shape(x_train) != TRAIN_SHAPE:
     
 if np.shape(x_test) != TEST_SHAPE:
     x_test = np.transpose(x_test, (0, 2, 3, 1))
+
+
+'''
+img = x_train[1, :, :, :]
+img = np.pad(img, ((5, 5), (5, 5), (0,0)), 'constant', constant_values=255.)
+plt.imsave('test.jpg', img, cmap="gray")
+assert(False)
+'''
 
 '''
 x_train1 = io.loadmat('./CIFAR10/data_batch_1.mat')['data']
@@ -73,6 +82,64 @@ def viz(name, filters):
             img = np.concatenate((img, row), axis=0)
             
     plt.imsave(name, img)
+    
+
+# verfiy this function works by diffing with TF function.
+# verify padding works by vizing image. 
+def conv2d(inputs, filters, strides, padding):
+    N, h, w, c = np.shape(inputs)
+    fh, fw, fin, fout = np.shape(filters)
+    assert(fin == c)
+    pad_h, pad_w = conv_utils.get_pad(padding, np.array([fh, fw]))
+    stride_row, stride_col = strides
+    # inputs = np.pad(inputs, [[0, 0], [pad_h, pad_h], [pad_w, pad_w], [0, 0]])
+    # TODO verify this works by vizing a CIFAR10 image.
+    inputs = np.pad(inputs, ((0,0), (pad_h, pad_h), (pad_w, pad_w), (0,0)), 'constant')
+
+    output_row = conv_utils.conv_output_length(h, fh, padding, strides[0])
+    output_col = conv_utils.conv_output_length(w, fw, padding, strides[1])
+    output_shape = (output_row, output_col, fout)
+    filter_shape = (output_row * output_col, fh * fw * fin, fout)
+
+    xs = []
+    for i in range(output_row):
+        for j in range(output_col):
+            slice_row = slice(i * stride_row, i * stride_row + fh)
+            slice_col = slice(j * stride_col, j * stride_col + fw)
+            xs.append(np.reshape(inputs[:, slice_row, slice_col, :], (1, N, fh * fw * fin)))
+
+    x_aggregate = np.concatenate(xs, axis=0)
+    # print (np.shape(x_aggregate), np.shape(filters))
+    _filters = np.reshape(filters, (fh*fw*fin, fout))
+    output = np.matmul(x_aggregate, _filters)
+    output = np.reshape(output, (output_row, output_col, N, fout))
+    output = np.transpose(output, (2, 0, 1, 3))
+    return output
+
+'''
+def conv2d(inputs, kernel, strides, output_shape):
+    N = np.shape(inputs)[0]
+
+    stride_row, stride_col = strides
+    output_row, output_col = output_shape
+    kernel_shape = np.shape(kernel)
+    feature_dim = kernel_shape[1]
+    kernel_size = kernel_shape[2]
+
+    xs = []
+    for i in range(output_row):
+        for j in range(output_col):
+            slice_row = slice(i * stride_row, i * stride_row + kernel_size[0])
+            slice_col = slice(j * stride_col, j * stride_col + kernel_size[1])
+            xs.append(np.reshape(inputs[:, slice_row, slice_col, :], (1, N, feature_dim)))
+
+    x_aggregate = np.concat(xs, axis=0)
+    # output = tf.keras.backend.batch_dot(x_aggregate, kernel)
+    output = np.matmul(x_aggregate, kernel)
+    output = np.reshape(output, (output_row, output_col, N, filters))
+    output = np.transpose(output, (2, 0, 1, 3))
+    return output
+'''
 
 ###########################################
 
@@ -173,19 +240,32 @@ print (np.std(patches))
 
 ###########################################
 
-centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=1600, iterations=1)
-print (np.std(centroids))
+centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=128, iterations=10)
+filters = np.reshape(centroids, (128, 6, 6, 3))
+filters = np.transpose(filters, (1, 2, 3, 0))
 
+features = np.zeros(shape=(TRAIN_EXAMPLES, H, W, 128))
+for ii in range(0, TRAIN_EXAMPLES, 100):
+    print (ii)
+    
+    start = ii
+    stop = ii + 100
+    _features = conv2d(inputs=x_train[start:stop], filters=filters, strides=[1, 1], padding='same')
+    features[start:stop] = _features
+
+print (np.shape(features))
+np.save('features', features)
+
+'''
 # if we dump it and do show_centroids in matlab it works fine.
 dic = {'centroids': centroids}
 io.savemat('centroids.mat', dic)
-
+'''
 '''
 centroids = np.reshape(centroids, (1600, 6, 6, 3))
 centroids = np.transpose(centroids, (1, 2, 3, 0))
 viz('centroids', centroids)
 '''
-
 '''
 clf = svm.SVC(gamma='scale')
 clf.fit(X, y) 
