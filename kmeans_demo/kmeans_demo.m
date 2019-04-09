@@ -40,7 +40,22 @@ for i=1:numPatches
 end
 
 % normalize for contrast
+v = var(patches,[],2);
+m = mean(patches,2);
+
+disp(size(m));
+disp(std(m(:)));
+disp(size(v));
+disp(std(v(:)));
+
+%save('patches.mat', 'patches');
+
 patches = bsxfun(@rdivide, bsxfun(@minus, patches, mean(patches,2)), sqrt(var(patches,[],2)+10));
+
+disp(size(patches));
+disp(std(patches(:)));
+
+%save('patches.mat', 'patches')
 
 % whiten
 if (whitening)
@@ -53,18 +68,18 @@ end
 
 %save('patches.mat', 'patches')
 
-%disp(std(patches(:)))
+disp(std(patches(:)))
 
 % run K-means
-%centroids = run_kmeans(patches, numCentroids, 1);
-M = load('centroids.mat');
-centroids = M.centroids;
-show_centroids(centroids, rfSize); drawnow;
-disp(size(centroids));
+centroids = run_kmeans(patches, numCentroids, 1);
+%M = load('centroids.mat');
+%centroids = M.centroids;
+%show_centroids(centroids, rfSize); drawnow;
+%disp(size(centroids));
 
 % extract training features
 if (whitening)
-  trainXC = extract_features(trainX, centroids, rfSize, CIFAR_DIM, M,P);
+  trainXC = extract_features(trainX, centroids, rfSize, CIFAR_DIM, M, P);
 else
   trainXC = extract_features(trainX, centroids, rfSize, CIFAR_DIM);
 end

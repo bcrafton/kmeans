@@ -13,6 +13,8 @@ function XC = extract_features(X, centroids, rfSize, CIFAR_DIM, M, P)
                 im2col(reshape(X(i,1025:2048),CIFAR_DIM(1:2)), [rfSize rfSize]) ;
                 im2col(reshape(X(i,2049:end),CIFAR_DIM(1:2)), [rfSize rfSize]) ]';
 
+    %disp(size(patches));
+            
     % do preprocessing for each patch
     
     % normalize for contrast
@@ -22,11 +24,17 @@ function XC = extract_features(X, centroids, rfSize, CIFAR_DIM, M, P)
       patches = bsxfun(@minus, patches, M) * P;
     end
     
+    %disp(size(patches));
+    %disp(size(centroids));
+    
     % compute 'triangle' activation function
     xx = sum(patches.^2, 2);
     cc = sum(centroids.^2, 2)';
     xc = patches * centroids';
-    
+
+    %disp(size(patches));
+    %disp(size(centroids));
+
     z = sqrt( bsxfun(@plus, cc, bsxfun(@minus, xx, 2*xc)) ); % distances
     [v,inds] = min(z,[],2);
     mu = mean(z, 2); % average distance to centroids for each patch
