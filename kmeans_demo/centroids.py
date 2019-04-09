@@ -64,10 +64,10 @@ def factors(x):
 
 def viz(name, filters):
     fh, fw, fin, fout = np.shape(filters)
-    filters = np.transpose(filters, (3, 0, 1, 2))
-    
-    [nrows, ncols] = factors(fout)
-    filters = np.reshape(filters, (nrows, ncols, fh, fw, fin))
+    filters = filters.T
+    assert(np.shape(filters) == (fout, fin, fw, fh))
+    [nrows, ncols] = factors(fin * fout)
+    filters = np.reshape(filters, (nrows, ncols, fw, fh))
 
     for ii in range(nrows):
         for jj in range(ncols):
@@ -80,8 +80,8 @@ def viz(name, filters):
             img = row
         else:
             img = np.concatenate((img, row), axis=0)
-            
-    plt.imsave(name, img)
+
+    plt.imsave(name, img, cmap='gray')
     
 
 # verfiy this function works by diffing with TF function.
@@ -240,21 +240,26 @@ print (np.std(patches))
 
 ###########################################
 
-centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=128, iterations=10)
+centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=128, iterations=100)
 filters = np.reshape(centroids, (128, 6, 6, 3))
 filters = np.transpose(filters, (1, 2, 3, 0))
+viz('filters', filters)
 
-features = np.zeros(shape=(TRAIN_EXAMPLES, H, W, 128))
+np.save('filters', {'conv1': filters})
+
+'''
+# features = np.zeros(shape=(TRAIN_EXAMPLES, H, W, 128))
 for ii in range(0, TRAIN_EXAMPLES, 100):
     print (ii)
     
     start = ii
     stop = ii + 100
     _features = conv2d(inputs=x_train[start:stop], filters=filters, strides=[1, 1], padding='same')
-    features[start:stop] = _features
+    # features[start:stop] = _features
 
-print (np.shape(features))
-np.save('features', features)
+# print (np.shape(features))
+# np.save('features', features)
+'''
 
 '''
 # if we dump it and do show_centroids in matlab it works fine.
