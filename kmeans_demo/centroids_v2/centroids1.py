@@ -133,12 +133,23 @@ x_train = x_train / scale
 x_train = whiten(X=x_train, method='zca')
 x_train = np.reshape(x_train, (TRAIN_EXAMPLES, H, W, C))
 
-patches = get_patches(X=x_train, patch_shape=(5, 5, 3), patch_num=400000)
-patches = np.reshape(patches, (400000, 5*5*3))
 ###########################################
 
-centroids = kmeans(patches=patches, patch_shape=(5, 5, 3), patch_num=400000, centroid_num=96, iterations=100)
+filters = np.zeros(shape=(96, 5, 5, 3))
+for ii in range(6):
+    patches = get_patches(X=x_train, patch_shape=(5, 5, 3), patch_num=400000)
+    patches = np.reshape(patches, (400000, 5*5*3))
+
+    centroids = kmeans(patches=patches, patch_shape=(5, 5, 3), patch_num=400000, centroid_num=16, iterations=25)
+    filters[ii*16:(ii+1)*16] = np.reshape(centroids, (16, 5, 5, 3))
+
+'''
+patches = get_patches(X=x_train, patch_shape=(5, 5, 3), patch_num=400000)
+patches = np.reshape(patches, (400000, 5*5*3))
+centroids = kmeans(patches=patches, patch_shape=(5, 5, 3), patch_num=400000, centroid_num=96, iterations=25)
 filters = np.reshape(centroids, (96, 5, 5, 3))
+'''
+
 filters = np.transpose(filters, (1, 2, 3, 0))
 viz('filters1', filters)
 np.save('filters1', {'conv1': filters})
