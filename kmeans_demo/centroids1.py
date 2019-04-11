@@ -1,6 +1,7 @@
 
 import numpy as np
 # from scipy.cluster.vq import whiten
+from sklearn.decomposition import PCA
 from whiten import whiten
 from sklearn import svm
 import matplotlib.pyplot as plt
@@ -28,24 +29,6 @@ if np.shape(x_train) != TRAIN_SHAPE:
 if np.shape(x_test) != TEST_SHAPE:
     x_test = np.transpose(x_test, (0, 2, 3, 1))
 
-
-'''
-img = x_train[1, :, :, :]
-img = np.pad(img, ((5, 5), (5, 5), (0,0)), 'constant', constant_values=255.)
-plt.imsave('test.jpg', img, cmap="gray")
-assert(False)
-'''
-
-'''
-x_train1 = io.loadmat('./CIFAR10/data_batch_1.mat')['data']
-x_train2 = io.loadmat('./CIFAR10/data_batch_2.mat')['data']
-x_train3 = io.loadmat('./CIFAR10/data_batch_3.mat')['data']
-x_train4 = io.loadmat('./CIFAR10/data_batch_4.mat')['data']
-x_train5 = io.loadmat('./CIFAR10/data_batch_5.mat')['data']
-x_train = np.concatenate((x_train1, x_train2, x_train3, x_train4, x_train5), axis=0)
-x_train = x_train.astype(float)
-x_train = np.reshape(x_train, (TRAIN_SHAPE))
-'''
 ###########################################
 
 def factors(x):
@@ -83,72 +66,7 @@ def viz(name, filters):
 
     plt.imsave(name, img, cmap='gray')
     
-
-# verfiy this function works by diffing with TF function.
-# verify padding works by vizing image. 
-def conv2d(inputs, filters, strides, padding):
-    N, h, w, c = np.shape(inputs)
-    fh, fw, fin, fout = np.shape(filters)
-    assert(fin == c)
-    pad_h, pad_w = conv_utils.get_pad(padding, np.array([fh, fw]))
-    stride_row, stride_col = strides
-    # inputs = np.pad(inputs, [[0, 0], [pad_h, pad_h], [pad_w, pad_w], [0, 0]])
-    # TODO verify this works by vizing a CIFAR10 image.
-    inputs = np.pad(inputs, ((0,0), (pad_h, pad_h), (pad_w, pad_w), (0,0)), 'constant')
-
-    output_row = conv_utils.conv_output_length(h, fh, padding, strides[0])
-    output_col = conv_utils.conv_output_length(w, fw, padding, strides[1])
-    output_shape = (output_row, output_col, fout)
-    filter_shape = (output_row * output_col, fh * fw * fin, fout)
-
-    xs = []
-    for i in range(output_row):
-        for j in range(output_col):
-            slice_row = slice(i * stride_row, i * stride_row + fh)
-            slice_col = slice(j * stride_col, j * stride_col + fw)
-            xs.append(np.reshape(inputs[:, slice_row, slice_col, :], (1, N, fh * fw * fin)))
-
-    x_aggregate = np.concatenate(xs, axis=0)
-    # print (np.shape(x_aggregate), np.shape(filters))
-    _filters = np.reshape(filters, (fh*fw*fin, fout))
-    output = np.matmul(x_aggregate, _filters)
-    output = np.reshape(output, (output_row, output_col, N, fout))
-    output = np.transpose(output, (2, 0, 1, 3))
-    return output
-
-'''
-def conv2d(inputs, kernel, strides, output_shape):
-    N = np.shape(inputs)[0]
-
-    stride_row, stride_col = strides
-    output_row, output_col = output_shape
-    kernel_shape = np.shape(kernel)
-    feature_dim = kernel_shape[1]
-    kernel_size = kernel_shape[2]
-
-    xs = []
-    for i in range(output_row):
-        for j in range(output_col):
-            slice_row = slice(i * stride_row, i * stride_row + kernel_size[0])
-            slice_col = slice(j * stride_col, j * stride_col + kernel_size[1])
-            xs.append(np.reshape(inputs[:, slice_row, slice_col, :], (1, N, feature_dim)))
-
-    x_aggregate = np.concat(xs, axis=0)
-    # output = tf.keras.backend.batch_dot(x_aggregate, kernel)
-    output = np.matmul(x_aggregate, kernel)
-    output = np.reshape(output, (output_row, output_col, N, filters))
-    output = np.transpose(output, (2, 0, 1, 3))
-    return output
-'''
-
 ###########################################
-
-# patches = 400000, 108
-# so that menas to me 6*6*3 = 108
-
-# so first we must extract random patches apparently.
-# literally looks like they tear through CIFAR10 and take out the patches
-# so i guess we do the same thing
 
 def get_patches(X, patch_shape, patch_num):
     PH, PW, PC = patch_shape
@@ -160,7 +78,13 @@ def get_patches(X, patch_shape, patch_num):
         # c = np.random.randint(C - PC) # we are taking all the channels
         patch = X[idx, h:h+PH, w:w+PW, :]
         patches[ii] = patch
-        
+    
+    '''
+    shape = np.shape(patches)
+    patches = whiten(patches)
+    patches = np.reshape(patches, shape)
+    '''
+    
     return patches
 
 ###########################################
@@ -205,12 +129,35 @@ def kmeans(patches, patch_shape, patch_num, centroid_num, iterations):
     return centroids
     
 ###########################################
-# print (np.shape(x_train))
+
+x_train = np.reshape(x_train, (TRAIN_EXAMPLES, H, W, C))
+mean = np.mean(x_train, axis=(0,1,2), keepdims=True)
+std = np.std(x_train, axis=(0,1,2), ddof=1, keepdims=True)
+scale = std + 1.
+x_train = x_train - mean
+x_train = x_train / scale
+
 x_train = whiten(X=x_train, method='zca')
-# print (np.shape(x_train))
-x_train = np.reshape(x_train, TRAIN_SHAPE)
+
+'''
+for ii in range(3):
+    print (ii)
+    white = whiten(X=x_train[:, :, :, ii], method='zca')
+    white = np.reshape(white, (50000, 32, 32))
+    x_train[:, :, :, ii] = white
+'''
+
+'''
+x_train = np.reshape(x_train, (TRAIN_EXAMPLES, H * W * C))
+pca = PCA(n_components=H * W * C)
+pca.fit(x_train)
+x_train = pca.transform(x_train)
+x_train = np.reshape(x_train, (TRAIN_EXAMPLES, H, W, C))
+'''
+
 patches = get_patches(X=x_train, patch_shape=(6, 6, 3), patch_num=400000)
 patches = np.reshape(patches, (400000, 6*6*3))
+
 '''
 # patches = io.loadmat('patches.mat')['patches']
 
@@ -243,41 +190,12 @@ print (np.std(patches))
 '''
 ###########################################
 
-centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=128, iterations=100)
+centroids = kmeans(patches=patches, patch_shape=(6, 6, 3), patch_num=400000, centroid_num=128, iterations=10)
 filters = np.reshape(centroids, (128, 6, 6, 3))
 filters = np.transpose(filters, (1, 2, 3, 0))
 viz('filters', filters)
-
 np.save('filters', {'conv1': filters})
 
-'''
-# features = np.zeros(shape=(TRAIN_EXAMPLES, H, W, 128))
-for ii in range(0, TRAIN_EXAMPLES, 100):
-    print (ii)
-    
-    start = ii
-    stop = ii + 100
-    _features = conv2d(inputs=x_train[start:stop], filters=filters, strides=[1, 1], padding='same')
-    # features[start:stop] = _features
-
-# print (np.shape(features))
-# np.save('features', features)
-'''
-
-'''
-# if we dump it and do show_centroids in matlab it works fine.
-dic = {'centroids': centroids}
-io.savemat('centroids.mat', dic)
-'''
-'''
-centroids = np.reshape(centroids, (1600, 6, 6, 3))
-centroids = np.transpose(centroids, (1, 2, 3, 0))
-viz('centroids', centroids)
-'''
-'''
-clf = svm.SVC(gamma='scale')
-clf.fit(X, y) 
-'''
 
 
 

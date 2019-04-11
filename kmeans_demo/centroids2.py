@@ -94,7 +94,7 @@ def kmeans(X, patch_shape, patch_num, centroid_num, iterations):
             patches = np.reshape(patches, (BATCH_SIZE, -1))
             batch = patches
 
-            print (ii)
+            # print (ii)
 
             val = np.dot(centroids, batch.T) - c2
             labels = np.argmax(val, axis=0)
@@ -118,13 +118,49 @@ def kmeans(X, patch_shape, patch_num, centroid_num, iterations):
     
 ###########################################
 
-x_train = whiten(X=x_train, method='zca')
-x_train = np.reshape(x_train, TRAIN_SHAPE)
+'''
+for ii in range(128):
+    print (ii)
+    white = whiten(X=x_train[:, :, :, ii], method='zca')
+    white = np.reshape(white, (50000, 16, 16))
+    x_train[:, :, :, ii] = white
+'''
+
+x_train = np.reshape(x_train, (TRAIN_EXAMPLES, H, W, C))
+# which axis do we use ? 
+mean = np.mean(x_train, axis=(0, 1, 2), keepdims=True)
+std = np.std(x_train, axis=(0, 1, 2), ddof=1, keepdims=True)
+scale = std + 1.
+x_train = x_train - mean
+x_train = x_train / scale
+
+x_step = 8
+y_step = 8
+z_step = 32
+
+for x in range(0, 16, 2):
+    for y in range(0, 16, 2):
+        for z in range(0, 128, 16):
+            
+            print (x, y, z)
+            
+            x1 = x
+            x2 = min(x + x_step, 16)
+            
+            y1 = y
+            y2 = min(y + y_step, 16)
+
+            z1 = z
+            z2 = min(z + y_step, 128)
+            
+            white = whiten(X=x_train[:, x1:x2, y1:y2, z1:z2], method='zca')
+            white = np.reshape(white, (50000, x2-x1, y2-y1, z2-z1))
+            x_train[:, x1:x2, y1:y2, z1:z2] = white
 
 ###########################################
 
-centroids = kmeans(X=x_train, patch_shape=(6, 6, 128), patch_num=400000, centroid_num=256, iterations=100)
-filters = np.reshape(centroids, (256, 6, 6, 128))
+centroids = kmeans(X=x_train, patch_shape=(6, 6, 128), patch_num=400000, centroid_num=128, iterations=100)
+filters = np.reshape(centroids, (128, 6, 6, 128))
 filters = np.transpose(filters, (1, 2, 3, 0))
 viz('filters2', filters)
 np.save('filters2', {'conv2': filters})
