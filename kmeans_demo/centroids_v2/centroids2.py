@@ -2,7 +2,7 @@
 import numpy as np
 # from scipy.cluster.vq import whiten
 from whiten import whiten
-from sklearn import svm
+# from sklearn import svm
 import matplotlib.pyplot as plt
 from scipy import io
 import tensorflow as tf
@@ -107,7 +107,7 @@ def kmeans(X, patch_shape, patch_num, centroid_num, iterations):
             summation = summation + np.dot(s.T, batch)
             counts = counts + np.sum(s, axis=0)
 
-        print (np.std(centroids))
+        print (itr, np.std(centroids))
 
         idx = np.where(counts != 0)
         nidx = np.where(counts == 0)
@@ -142,7 +142,7 @@ for x in range(0, H, 8):
             y2 = y + y_step
 
             z1 = z
-            z2 = z + y_step
+            z2 = z + z_step
             
             if (x2 > 16 or y2 > 16 or z2 > 96):
                 continue
@@ -153,11 +153,9 @@ for x in range(0, H, 8):
             white = np.reshape(white, (TRAIN_EXAMPLES, x2-x1, y2-y1, z2-z1))
             x_train[:, x1:x2, y1:y2, z1:z2] = white
 
-# np.save('x_train', x_train)
-
 ###########################################
 
-centroids = kmeans(X=x_train, patch_shape=(5, 5, 96), patch_num=400000, centroid_num=128, iterations=100)
+centroids = kmeans(X=x_train, patch_shape=(5, 5, 96), patch_num=400000, centroid_num=128, iterations=20)
 filters = np.reshape(centroids, (128, 5, 5, 96))
 filters = np.transpose(filters, (1, 2, 3, 0))
 viz('filters2', filters)
