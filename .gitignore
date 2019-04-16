@@ -1,2 +1,4 @@
 cifar-10-matlab.tar.gz
 CIFAR10
+*__pycache__*
+*.png
