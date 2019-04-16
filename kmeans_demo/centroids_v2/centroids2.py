@@ -133,7 +133,7 @@ z_step = 48
 
 for x in range(0, H, 8):
     for y in range(0, W, 8):
-        for z in range(0, C, 12):
+        for z in range(0, C, 48):
             
             x1 = x
             x2 = x + x_step
@@ -154,18 +154,16 @@ for x in range(0, H, 8):
             x_train[:, x1:x2, y1:y2, z1:z2] = white
 
 ###########################################
+'''
 filters = np.zeros(shape=(128, 5, 5, 96))
 for ii in range(8):
     centroids = kmeans(X=x_train, patch_shape=(5, 5, 96), patch_num=400000, centroid_num=16, iterations=25)
     start = ii * 16
     end = (ii + 1) * 16
     filters[start:end] = np.reshape(centroids, (16, 5, 5, 96))
-
-
 '''
-centroids = kmeans(X=x_train, patch_shape=(5, 5, 96), patch_num=400000, centroid_num=128, iterations=25)
+centroids = kmeans(X=x_train, patch_shape=(5, 5, 96), patch_num=400000, centroid_num=128, iterations=100)
 filters = np.reshape(centroids, (128, 5, 5, 96))
-'''
 
 filters = np.transpose(filters, (1, 2, 3, 0))
 viz('filters2', filters)

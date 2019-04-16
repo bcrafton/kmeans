@@ -1,9 +1,9 @@
 
 import numpy as np
 # from scipy.cluster.vq import whiten
-from sklearn.decomposition import PCA
+# from sklearn.decomposition import PCA
 from whiten import whiten
-from sklearn import svm
+# from sklearn import svm
 import matplotlib.pyplot as plt
 from scipy import io
 import tensorflow as tf
@@ -134,7 +134,7 @@ x_train = whiten(X=x_train, method='zca')
 x_train = np.reshape(x_train, (TRAIN_EXAMPLES, H, W, C))
 
 ###########################################
-
+'''
 filters = np.zeros(shape=(96, 5, 5, 3))
 for ii in range(6):
     patches = get_patches(X=x_train, patch_shape=(5, 5, 3), patch_num=400000)
@@ -142,13 +142,11 @@ for ii in range(6):
 
     centroids = kmeans(patches=patches, patch_shape=(5, 5, 3), patch_num=400000, centroid_num=16, iterations=25)
     filters[ii*16:(ii+1)*16] = np.reshape(centroids, (16, 5, 5, 3))
-
 '''
 patches = get_patches(X=x_train, patch_shape=(5, 5, 3), patch_num=400000)
 patches = np.reshape(patches, (400000, 5*5*3))
 centroids = kmeans(patches=patches, patch_shape=(5, 5, 3), patch_num=400000, centroid_num=96, iterations=25)
 filters = np.reshape(centroids, (96, 5, 5, 3))
-'''
 
 filters = np.transpose(filters, (1, 2, 3, 0))
 viz('filters1', filters)
