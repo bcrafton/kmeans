@@ -19,7 +19,7 @@ W = 16
 C = 96
 
 x_train = np.load('x_train.npy')
-# x_test = np.load('x_test.npy')
+# x_train = np.load('x_train_zca.npy')
 
 TRAIN_SHAPE = (TRAIN_EXAMPLES, H, W, C)
 TEST_SHAPE = (TEST_EXAMPLES, H, W, C)
@@ -119,29 +119,84 @@ def kmeans(X, patch_shape, patch_num, centroid_num, iterations):
 
 ###########################################
 
-def kmeans(X, patch_shape, patch_num, centroid_num, iterations):
+def conv_kmeans(X, patch_shape, patch_num, group_num, centroid_num, iterations):
     BATCH_SIZE = 1000
 
-    pixel_num = np.prod(patch_shape)
-    centroids = np.random.normal(loc=0., scale=0.1, size=(centroid_num, pixel_num))
+    fh, fw, fin = patch_shape
+    assert(fin % group_num == 0)
+    group_size = int(fin / group_num)
 
-    for itr in range(iterations):
-        summation = np.zeros(shape=(centroid_num, pixel_num))
-        counts = np.zeros(shape=(centroid_num))
-        c2 = 0.5 * np.sum(centroids ** 2, axis=1, keepdims=True)
+    pixel_num = np.prod((fh, fw, group_size))
+    centroids = np.random.normal(loc=0., scale=0.1, size=(group_num, centroid_num, pixel_num))
+
+    for _ in range(iterations):
+        summation = np.zeros(shape=(group_num, centroid_num, pixel_num))
+        counts = np.zeros(shape=(group_num, centroid_num))
 
         for ii in range(0, patch_num, BATCH_SIZE):
             patches = get_patches(X, patch_shape, ii, BATCH_SIZE)
-            patches = np.reshape(patches, (BATCH_SIZE, -1))
-            batch = patches
+
+            for jj in range(group_num):
+                c2 = 0.5 * np.sum(centroids ** 2, axis=2, keepdims=True)
+
+                start = jj * group_size
+                end = (jj + 1) * group_size
+                patch_slice = slice(start, end)
+                batch = patches[:, :, :, patch_slice]
+                batch = np.reshape(batch, (BATCH_SIZE, -1))
+
+                val = np.dot(centroids[jj], batch.T) - c2[jj]
+                labels = np.argmax(val, axis=0)
+                val = np.max(val, axis=0)
+                
+                s = np.zeros(shape=(BATCH_SIZE, centroid_num))
+                s[range(BATCH_SIZE), labels] = 1
+                
+                summation[jj] = summation[jj] + np.dot(s.T, batch)
+                counts[jj] = counts[jj] + np.sum(s, axis=0)
+
+        print (np.std(centroids))
+
+        for jj in range(group_num):
+            idx = np.where(counts[jj] != 0)
+            nidx = np.where(counts[jj] == 0)
+            _counts = 1. * np.reshape(counts[jj], (-1, 1))
+            centroids[jj][idx] = summation[jj][idx] / _counts[idx]
+            centroids[jj][nidx] = 0.
+        
+    return centroids
+
+###########################################
+# cud use batch dot here, but fuck that
+# group, batch, pixel
+# group, pixel, centroid
+
+'''
+def conv_kmeans(X, patch_shape, patch_num, group_num, centroid_num, iterations):
+    BATCH_SIZE = 1000
+
+    pixel_num = np.prod(patch_shape)
+    centroids = np.random.normal(loc=0., scale=0.1, size=(group_num, centroid_num, pixel_num))
+
+    for itr in range(iterations):
+        summation = np.zeros(shape=(group_num, centroid_num, pixel_num))
+        counts = np.zeros(shape=(group_num, centroid_num))
+        c2 = 0.5 * np.sum(centroids ** 2, axis=2, keepdims=True)
+    
+        for ii in range(0, patch_num, BATCH_SIZE):
+            patches = get_patches(X, patch_shape, ii, BATCH_SIZE)
+            # patches = np.reshape(patches, (BATCH_SIZE, -1))
+            # batch = patches
+            assert(np.shape(patches) == (BATCH_SIZE, patch_shape[0], patch_shape[1], patch_shape[2]))
+            patches = np.transpose()
 
             val = np.dot(centroids, batch.T) - c2
             labels = np.argmax(val, axis=0)
             val = np.max(val, axis=0)
-
+            
             s = np.zeros(shape=(BATCH_SIZE, centroid_num))
             s[range(BATCH_SIZE), labels] = 1
-
+            
             summation = summation + np.dot(s.T, batch)
             counts = counts + np.sum(s, axis=0)
 
@@ -152,9 +207,9 @@ def kmeans(X, patch_shape, patch_num, centroid_num, iterations):
         _counts = 1. * np.reshape(counts, (-1, 1))
         centroids[idx] = summation[idx] / _counts[idx]
         centroids[nidx] = 0.
-
+        
     return centroids
-
+'''
 ###########################################
 
 x_train = np.reshape(x_train, (TRAIN_EXAMPLES, H, W, C))
@@ -164,6 +219,8 @@ std = np.std(x_train, axis=(0, 1, 2), ddof=1, keepdims=True)
 scale = std + 1.
 x_train = x_train - mean
 x_train = x_train / scale
+
+###########################################
 
 def zca_approx(data, ksize, ssize):
     N, H, W, C = np.shape(data)
@@ -196,15 +253,32 @@ def zca_approx(data, ksize, ssize):
                             white = np.reshape(white, (N, x2-x1, y2-y1, z2-z1))
                             x_train[:, x1:x2, y1:y2, z1:z2] = white
 
-x_train = zca_approx(x_train, (8, 8, 48), (8, 8, 12))
+    return x_train
 
 ###########################################
 
-centroids = kmeans(X=x_train, patch_shape=(5, 5, 96), patch_num=400000, centroid_num=128, iterations=100)
+shape = np.shape(x_train)
+x_train = whiten(x_train)
+x_train = np.reshape(x_train, shape)
+
+# x_train = zca_approx(x_train, (8, 8, 48), (8, 8, 48))
+# np.save('x_train_zca', x_train)
+
+###########################################
+
+centroids = conv_kmeans(X=x_train, patch_shape=(5, 5, 96), patch_num=400000, group_num=16, centroid_num=16, iterations=25)
+filters = np.reshape(centroids, (16, 16, 5, 5, 6))
+filters = np.transpose(filters, (2, 3, 4, 1, 0))
+# viz('filters2', filters)
+np.save('filters2', {'conv2': filters})
+
+'''
+centroids = kmeans(X=x_train, patch_shape=(5, 5, 96), patch_num=400000, centroid_num=128, iterations=25)
 filters = np.reshape(centroids, (128, 5, 5, 96))
 filters = np.transpose(filters, (1, 2, 3, 0))
 viz('filters2', filters)
 np.save('filters2', {'conv2': filters})
+'''
 
 ###########################################
 
